@@ -1,0 +1,10 @@
+gradio>=4.0.0
+opencv-python
+mediapipe
+torch
+torchvision
+numpy
+pandas
+pillow
+matplotlib
+flatbuffers>=24.3.25

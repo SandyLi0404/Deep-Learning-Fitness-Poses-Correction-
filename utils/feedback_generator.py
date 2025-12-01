@@ -1,120 +1,268 @@
-# utils/feedback_generator.py
+# feedback_generator.py - Fixed version with proper pose name handling
 
-import pandas as pd
 import numpy as np
 
 
-# Load per-pose statistical angle data (mean & std)
-def load_pose_stats():
+# Pose-specific angle whitelists (lowercase keys)
+POSE_ANGLE_WHITELIST = {
+    "downdog": [
+        "left_shoulder_angle", "right_shoulder_angle",
+        "left_hip_angle", "right_hip_angle",
+        "left_knee_angle", "right_knee_angle",
+        "left_wrist_angle_bk", "right_wrist_angle_bk",
+        "neck_angle_uk",
+    ],
+    "plank": [
+        "left_shoulder_angle", "right_shoulder_angle",
+        "left_hip_angle", "right_hip_angle",
+        "left_knee_angle", "right_knee_angle",
+        "left_elbow_angle", "right_elbow_angle",
+        "neck_angle_uk",
+    ],
+    "goddess": [
+        "left_hip_angle", "right_hip_angle",
+        "left_knee_angle", "right_knee_angle",
+        "left_shoulder_angle", "right_shoulder_angle",
+    ],
+    "tree": [
+        "left_hip_angle", "right_hip_angle",
+        "left_knee_angle", "right_knee_angle",
+        "left_shoulder_angle", "right_shoulder_angle",
+    ],
+    "warrior2": [
+        "left_hip_angle", "right_hip_angle",
+        "left_knee_angle", "right_knee_angle",
+        "left_shoulder_angle", "right_shoulder_angle",
+        "hand_angle",
+    ],
+}
+
+
+# Friendly names for display
+FRIENDLY_NAMES = {
+    "left_hip_angle": "Left Hip",
+    "right_hip_angle": "Right Hip",
+    "left_knee_angle": "Left Knee",
+    "right_knee_angle": "Right Knee",
+    "left_elbow_angle": "Left Elbow",
+    "right_elbow_angle": "Right Elbow",
+    "neck_angle_uk": "Neck Alignment",
+    "left_shoulder_angle": "Left Shoulder",
+    "right_shoulder_angle": "Right Shoulder",
+    "left_wrist_angle_bk": "Left Wrist Line",
+    "right_wrist_angle_bk": "Right Wrist Line",
+    "hand_angle": "Arm Level",
+}
+
+
+def circular_diff(a, b):
+    """Calculate circular difference between two angles."""
+    return (a - b + 180) % 360 - 180
+
+
+def pretty_name(name):
+    """Convert internal name to friendly display name."""
+    return FRIENDLY_NAMES.get(name, name.replace("_", " ").title())
+
+
+def classify_severity(diff, threshold):
+    """Classify deviation severity."""
+    ratio = abs(diff) / max(threshold, 1e-6)
+    if ratio < 1.2:
+        return "mild"
+    elif ratio < 1.8:
+        return "moderate"
+    else:
+        return "severe"
+
+
+def describe_angle_feedback(pose, angle_name, diff, side):
+    """Generate pose-specific coaching feedback."""
+    more = diff > 0
+    side_word = f"{side} " if side else ""
+
+    # Downdog & Plank
+    if pose in ["downdog", "plank"]:
+        if "hip_angle" in angle_name:
+            return f"{'Lower' if more else 'Lift'} your {side_word}hip slightly for better alignment."
+        if "knee_angle" in angle_name:
+            return f"{'Straighten' if more else 'Soften'} your {side_word}knee a bit more."
+        if "shoulder_angle" in angle_name:
+            return f"{'Push the floor away and open' if more else 'Stack'} your {side_word}shoulder more."
+        if "wrist_angle_bk" in angle_name:
+            return f"Adjust your {side_word}arm line from shoulder to wrist."
+        if "elbow_angle" in angle_name:
+            return f"{'Straighten' if more else 'Slightly bend'} your {side_word}elbow."
+        if "neck_angle" in angle_name:
+            return "Lengthen the back of your neck" if more else "Gently relax your neck."
+
+    # Goddess & Warrior2
+    if pose in ["goddess", "warrior2"]:
+        if "knee_angle" in angle_name:
+            return f"{'Bend' if more else 'Straighten'} your {side_word}knee slightly."
+        if "hip_angle" in angle_name:
+            return f"{'Draw your hip under' if more else 'Open your hip more to the side'} for {side_word}alignment."
+        if "shoulder_angle" in angle_name:
+            return f"Adjust your {side_word}shoulder opening."
+        if "hand_angle" in angle_name:
+            return "Level your arms at shoulder height."
+
+    # Tree
+    if pose == "tree":
+        if "knee_angle" in angle_name:
+            return f"{'Press your knee out' if more else 'Keep your knee from collapsing'} for {side_word}stability."
+        if "hip_angle" in angle_name:
+            return f"{'Square' if more else 'Open'} your {side_word}hip slightly."
+        if "shoulder_angle" in angle_name:
+            return f"Balance your {side_word}shoulder alignment."
+
+    return f"Adjust your {pretty_name(angle_name)} alignment."
+
+
+def generate_feedback(angle_dict, pose_name, angle_stats, feature_cols, std_factor=1.0, min_deg=20.0):
     """
-    Load statistical angle summaries (mean and std) for each yoga pose.
-    
-    Returns
-    -------
-    stats : dict
-        Dictionary mapping pose names to their statistical angle data:
-        - mean: average angle values across the dataset
-        - std: standard deviation of angle values
-        - columns: angle names (if available)
-    """
-    stats = {}
-    
-    # Supported pose names (must match filenames in angles/ folder)
-    poses = ['downdog', 'goddess', 'plank', 'tree', 'warrior2']
-    
-    for pose in poses:
-        csv_path = f'angles/{pose}.csv'   # Adjust if your folder uses different casing
-
-        try:
-            df = pd.read_csv(csv_path)
-            
-            # Select numeric columns only (ignore filenames or metadata)
-            numeric_columns = df.select_dtypes(include=[np.number]).columns
-            
-            stats[pose] = {
-                'mean': df[numeric_columns].mean().values,
-                'std': df[numeric_columns].std().values,
-                'columns': list(numeric_columns)
-            }
-        
-        except Exception as e:
-            print(f"Warning: Could not load {csv_path}: {e}")
-            
-            # Use fallback values if dataset is missing or corrupted
-            stats[pose] = {
-                'mean': np.zeros(12),
-                'std': np.ones(12),
-                'columns': []
-            }
-    
-    return stats
-
-
-# Load global pose statistics at import time
-pose_stats = load_pose_stats()
-
-
-# Generate personalized feedback for a predicted pose
-def generate_feedback(angles, pose_name):
-    """
-    Generate personalized corrective feedback based on joint angle deviations.
+    Generate detailed feedback text for the predicted pose.
     
     Parameters
     ----------
-    angles : list or np.ndarray
-        Angle vector for the input image (from angle extractor).
-    
+    angle_dict : dict
+        Dictionary of computed angles from the user's image.
     pose_name : str
-        Name of the predicted pose (e.g., 'tree', 'plank').
+        Predicted pose name (can be "Plank" or "plank").
+    angle_stats : dict
+        Statistical data for each pose (keys are lowercase).
+    feature_cols : list
+        Ordered list of angle feature names.
+    std_factor : float
+        Multiplier on standard deviation for flagging abnormal angles.
+    min_deg : float
+        Minimum absolute angle difference to flag.
     
     Returns
     -------
     str
-        A human-readable feedback message describing joint misalignment.
+        Formatted feedback text.
     """
+    # Normalize pose name to lowercase for lookups
+    pose_lower = pose_name.lower()
     
-    if pose_name not in pose_stats:
-        return "⚠️ Unknown pose type (statistics unavailable)."
+    # Debug: print available keys
+    print(f"Looking for pose: '{pose_lower}' in angle_stats keys: {list(angle_stats.keys())}")
     
-    stats = pose_stats[pose_name]
-    mean_angles = stats['mean']
-    std_angles = stats['std']
+    # Get statistical data (try multiple variations)
+    stats = None
+    for key in [pose_lower, pose_name, pose_name.capitalize(), pose_name.upper()]:
+        if key in angle_stats:
+            stats = angle_stats[key]
+            print(f"✓ Found stats with key: '{key}'")
+            break
     
-    # Validate angle vector length
-    if len(angles) != len(mean_angles):
-        return f"⚠️ Angle length mismatch: expected {len(mean_angles)}, received {len(angles)}"
+    if stats is None:
+        return f"⚠️ No statistical data available for pose: {pose_name}\n\nAvailable poses: {', '.join(angle_stats.keys())}"
     
-    feedback = []
+    mean_angles = np.array(stats["mean"])
+    std_angles = np.array(stats["std"])
     
-    # Assign human-readable angle names when available
-    if stats['columns']:
-        angle_names = stats['columns']
-    else:
-        angle_names = [f'Angle {i+1}' for i in range(len(angles))]
+    # Get feature values
+    feats = [angle_dict.get(name, 0.0) for name in feature_cols]
     
-    # Evaluate angle deviation from pose-specific mean
-    for i, (angle, mean, std) in enumerate(zip(angles, mean_angles, std_angles)):
-        
-        if std == 0:   # Avoid division by zero
+    # Determine which angles to check
+    whitelist = POSE_ANGLE_WHITELIST.get(pose_lower, feature_cols)
+    
+    feedback_lines = []
+    violations = []
+    good_angles = []  # Track angles within tolerance
+    
+    # Check each angle
+    for name, value, mean, std in zip(feature_cols, feats, mean_angles, std_angles):
+        if name not in whitelist:
             continue
         
-        deviation = abs(angle - mean)
+        diff = circular_diff(value, mean)
+        threshold = max(min_deg, std_factor * std)
         
-        # Flag angles above 2 standard deviations as problematic
-        if deviation > 2 * std:
-            angle_name = angle_names[i] if i < len(angle_names) else f'Joint {i}'
-            
-            if angle > mean:
-                feedback.append(
-                    f"⚠️ {angle_name}: Too extended ({angle:.1f}° vs ideal {mean:.1f}°)"
-                )
-            else:
-                feedback.append(
-                    f"⚠️ {angle_name}: Too compressed ({angle:.1f}° vs ideal {mean:.1f}°)"
-                )
+        if abs(diff) < threshold:
+            # Angle is GOOD - still record it
+            good_angles.append((name, value, mean, diff))
+            continue
+        
+        # Angle needs attention - flag it
+        severity = classify_severity(diff, threshold)
+        side = "left" if "left_" in name else "right" if "right_" in name else ""
+        direction = "more" if diff > 0 else "less"
+        
+        violations.append((name, diff, threshold, severity))
+        
+        # Generate feedback text
+        text = describe_angle_feedback(pose_lower, name, diff, side)
+        if text is None:
+            text = (
+                f"Your {pretty_name(name).lower()} is about "
+                f"{abs(diff):.1f}° {direction} than typical."
+            )
+        
+        # Format like notebook: "- (severity) text (details)"
+        feedback_lines.append(
+            f"   - ({severity}) {text} "
+            f"(your {pretty_name(name).lower()}: {value:.1f}°, "
+            f"typical: {mean:.1f}°; "
+            f"≈{abs(diff):.1f}° {direction}, "
+            f"threshold ≈{threshold:.1f}°)"
+        )
     
-    # If no issue found, return a positive message
-    if not feedback:
-        return "✅ Great form! All joints fall within ideal alignment ranges."
+    # Calculate score
+    total_checked = len([n for n in feature_cols if n in whitelist])
+    bad = len(violations)
+    good = total_checked - bad
+    score = max(0.0, 100.0 * good / max(total_checked, 1))
     
-    return "\n".join(feedback)
+    # Sort violations for top-3
+    violations_sorted = sorted(
+        violations,
+        key=lambda v: abs(v[1]) / max(v[2], 1e-6),
+        reverse=True
+    )
+    top3 = violations_sorted[:3]
+    
+    # Build final feedback string - match notebook format
+    result = f"Feedback Analysis \n"
+    result += f"(Flagging joints where |difference| > max({std_factor} * std, {min_deg}°))\n\n"
+    
+    # Show corrections if any
+    if feedback_lines:
+        result += " ⚠️ Corrections Needed: \n\n"
+        result += "\n\n".join(feedback_lines)
+        result += "\n\n"
+    
+    # Score and summary
+    result += f" Overall alignment score: {score:.1f} / 100 \n"
+    result += f"Joints within tolerance: {good}/{total_checked}\n"
+    result += f"Joints needing attention: {bad}/{total_checked}\n\n"
+    
+    # Top-3 focus areas
+    if top3:
+        result += "🎯 Focus first on these joints: \n"
+        for name, diff, threshold, severity in top3:
+            direction = "more" if diff > 0 else "less"
+            result += (
+                f"   * ({severity}) {pretty_name(name).lower()} "
+                f"(≈{abs(diff):.1f}° {direction}, threshold ≈{threshold:.1f}°)\n"
+            )
+        result += "\n"
+    
+    # Encouraging message
+    if bad == 0:
+        result += "🎉 All checked joint angles look good! \n\n"
+    elif good > 0:
+        result += f"💪 Nice work! {good} joints are already within the target range.\n\n"
+    
+    # Show good angles with their actual deviations
+    if good_angles:
+        result += "✅ Angles Within Tolerance Range: \n\n"
+        for name, value, mean, diff in good_angles:
+            result += (
+                f"   • {pretty_name(name)}: {value:.1f}° "
+                f"(typical: {mean:.1f}°, ≈{abs(diff):.1f}° {'more' if diff > 0 else 'less'})\n"
+            )
+    
+    return result

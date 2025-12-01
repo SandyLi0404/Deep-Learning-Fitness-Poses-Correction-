@@ -1,3 +1,5 @@
+# pose_extraction.py - Updated landmark extraction with correct return order
+
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -8,9 +10,7 @@ mp_drawing = mp.solutions.drawing_utils
 
 def extract_landmarks(image):
     """
-    Extract pose landmarks from an input image and return both:
-    - a dictionary of landmark coordinates
-    - an annotated image with skeleton drawn
+    Extract pose landmarks from an input image.
     
     Parameters
     ----------
@@ -19,14 +19,13 @@ def extract_landmarks(image):
     
     Returns
     -------
-    landmarks_dict : dict or None
-        Dictionary containing normalized landmark coordinates.
+    landmarks : list or None
+        List of 33 landmarks, each as tuple (x, y, z) in pixel coordinates.
         Returns None if no pose landmarks are detected.
     
     annotated_image : numpy.ndarray
         The image with pose landmarks drawn on top.
     """
-
     # Convert PIL Image to NumPy array if necessary
     if hasattr(image, "convert"):
         image = np.array(image.convert("RGB"))
@@ -34,33 +33,43 @@ def extract_landmarks(image):
     # Initialize MediaPipe Pose model
     with mp_pose.Pose(
         static_image_mode=True,
-        min_detection_confidence=0.3,
-        model_complexity=2
+        model_complexity=2,
+        enable_segmentation=False,
+        min_detection_confidence=0.5
     ) as pose:
 
-        # Run pose estimation inference
-        results = pose.process(cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        # Convert RGB to BGR for MediaPipe
+        image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        
+        # Run pose estimation
+        results = pose.process(image_bgr)
 
         # If no person or landmarks detected
         if not results.pose_landmarks:
             return None, image
 
+        # Get image dimensions for denormalization
+        h, w, _ = image_bgr.shape
+        
+        # Convert normalized landmarks to pixel coordinates as tuples
+        landmarks = []
+        for lm in results.pose_landmarks.landmark:
+            landmarks.append((
+                int(lm.x * w),  # x in pixels
+                int(lm.y * h),  # y in pixels
+                lm.z * w        # z (depth, relative)
+            ))
+
         # Draw detected landmarks on a copy of the image
-        annotated_image = image.copy()
+        annotated_image = image_bgr.copy()
         mp_drawing.draw_landmarks(
-            annotated_image,
-            results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
+            image=annotated_image,
+            landmark_list=results.pose_landmarks,
+            connections=mp_pose.POSE_CONNECTIONS
         )
+        
+        # Convert back to RGB for Gradio display
+        annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
 
-        # Convert MediaPipe landmarks into a clean Python dictionary
-        landmarks_dict = {}
-        for idx, landmark in enumerate(results.pose_landmarks.landmark):
-            landmarks_dict[idx] = {
-                "x": landmark.x,                # Normalized x-coordinate
-                "y": landmark.y,                # Normalized y-coordinate
-                "z": landmark.z,                # Depth (relative)
-                "visibility": landmark.visibility  # Detection confidence
-            }
-
-        return landmarks_dict, annotated_image
+        # Return in correct order: landmarks first, then annotated image
+        return landmarks, annotated_image

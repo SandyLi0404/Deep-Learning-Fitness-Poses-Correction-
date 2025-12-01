@@ -1,74 +1,159 @@
-import numpy as np
+# angle_calculation.py - Updated version matching new_version_feedback_image.ipynb
 
-def calculate_angle(point1, point2, point3):
+import math
+import mediapipe as mp
+
+mp_pose = mp.solutions.pose
+
+
+def calculate_angle(landmark1, landmark2, landmark3):
     """
-    Compute the angle formed by three points: point1 - point2 - point3.
-    The angle is measured at point2.
+    Compute the angle formed by three landmarks.
+    Uses atan2 for proper angle calculation in [0, 360) range.
     
     Parameters
     ----------
-    point1, point2, point3 : dict
-        Each point must contain keys 'x' and 'y' (normalized coordinates from MediaPipe).
+    landmark1, landmark2, landmark3 : tuple
+        Each landmark is (x, y, z) from MediaPipe.
     
     Returns
     -------
     float
-        Angle in degrees.
+        Angle in degrees [0, 360).
     """
-    
-    # Create vectors from point2 to point1 and point2 to point3
-    vector1 = np.array([point1['x'] - point2['x'], point1['y'] - point2['y']])
-    vector2 = np.array([point3['x'] - point2['x'], point3['y'] - point2['y']])
-    
-    # Compute cosine of the angle using dot product
-    cosine = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
-    
-    # Convert cosine value to angle in degrees (clip to avoid numerical errors)
-    angle = np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
-    
+    x1, y1, _ = landmark1
+    x2, y2, _ = landmark2
+    x3, y3, _ = landmark3
+
+    angle = math.degrees(
+        math.atan2(y3 - y2, x3 - x2) -
+        math.atan2(y1 - y2, x1 - x2)
+    )
+    if angle < 0:
+        angle += 360
     return angle
 
 
-def calculate_angles(landmarks):
+def angles_finder(landmarks):
     """
-    Compute all required body joint angles from MediaPipe pose landmarks.
+    Compute all 12 required body joint angles from MediaPipe pose landmarks.
     
     Parameters
     ----------
-    landmarks : list of dict
-        A list of landmarks where each element contains keys 'x', 'y'.
-        Indices follow MediaPipe Pose format (0–32).
+    landmarks : list of tuples
+        List of (x, y, z) landmark coordinates in pixel space.
+        Should contain 33 landmarks following MediaPipe Pose format.
     
     Returns
     -------
-    np.ndarray
-        Array of computed joint angles.
+    dict
+        Dictionary containing all 12 angle measurements.
     """
-    
-    angles = []
-    
-    # Example angle calculations below.
-    # Modify according to your complete angle definitions from angles.ipynb.
-    
-    # Left elbow angle: shoulder → elbow → wrist
-    left_elbow = calculate_angle(
-        landmarks[11],  # Left shoulder
-        landmarks[13],  # Left elbow
-        landmarks[15]   # Left wrist
+    P = mp_pose.PoseLandmark
+
+    # Elbow angles
+    left_elbow_angle = calculate_angle(
+        landmarks[P.LEFT_SHOULDER.value],
+        landmarks[P.LEFT_ELBOW.value],
+        landmarks[P.LEFT_WRIST.value]
     )
-    angles.append(left_elbow)
-    
-    # Right elbow angle: shoulder → elbow → wrist
-    right_elbow = calculate_angle(
-        landmarks[12],  # Right shoulder
-        landmarks[14],  # Right elbow
-        landmarks[16]   # Right wrist
+    right_elbow_angle = calculate_angle(
+        landmarks[P.RIGHT_SHOULDER.value],
+        landmarks[P.RIGHT_ELBOW.value],
+        landmarks[P.RIGHT_WRIST.value]
     )
-    angles.append(right_elbow)
+
+    # Shoulder angles
+    left_shoulder_angle = calculate_angle(
+        landmarks[P.LEFT_ELBOW.value],
+        landmarks[P.LEFT_SHOULDER.value],
+        landmarks[P.LEFT_HIP.value]
+    )
+    right_shoulder_angle = calculate_angle(
+        landmarks[P.RIGHT_HIP.value],
+        landmarks[P.RIGHT_SHOULDER.value],
+        landmarks[P.RIGHT_ELBOW.value]
+    )
+
+    # Knee angles
+    left_knee_angle = calculate_angle(
+        landmarks[P.LEFT_HIP.value],
+        landmarks[P.LEFT_KNEE.value],
+        landmarks[P.LEFT_ANKLE.value]
+    )
+    right_knee_angle = calculate_angle(
+        landmarks[P.RIGHT_HIP.value],
+        landmarks[P.RIGHT_KNEE.value],
+        landmarks[P.RIGHT_ANKLE.value]
+    )
+
+    # Hand angle (across shoulders)
+    hand_angle = calculate_angle(
+        landmarks[P.LEFT_ELBOW.value],
+        landmarks[P.RIGHT_SHOULDER.value],
+        landmarks[P.RIGHT_ELBOW.value]
+    )
+
+    # Hip angles
+    left_hip_angle = calculate_angle(
+        landmarks[P.LEFT_SHOULDER.value],
+        landmarks[P.LEFT_HIP.value],
+        landmarks[P.LEFT_KNEE.value]
+    )
+    right_hip_angle = calculate_angle(
+        landmarks[P.RIGHT_SHOULDER.value],
+        landmarks[P.RIGHT_HIP.value],
+        landmarks[P.RIGHT_KNEE.value]
+    )
+
+    # Neck angle
+    neck_angle_uk = calculate_angle(
+        landmarks[P.NOSE.value],
+        landmarks[P.LEFT_SHOULDER.value],
+        landmarks[P.RIGHT_SHOULDER.value]
+    )
+
+    # Wrist angles (body alignment)
+    left_wrist_angle_bk = calculate_angle(
+        landmarks[P.LEFT_WRIST.value],
+        landmarks[P.LEFT_HIP.value],
+        landmarks[P.LEFT_ANKLE.value]
+    )
+    right_wrist_angle_bk = calculate_angle(
+        landmarks[P.RIGHT_WRIST.value],
+        landmarks[P.RIGHT_HIP.value],
+        landmarks[P.RIGHT_ANKLE.value]
+    )
+
+    return {
+        "left_elbow_angle": left_elbow_angle,
+        "right_elbow_angle": right_elbow_angle,
+        "left_shoulder_angle": left_shoulder_angle,
+        "right_shoulder_angle": right_shoulder_angle,
+        "left_knee_angle": left_knee_angle,
+        "right_knee_angle": right_knee_angle,
+        "hand_angle": hand_angle,
+        "left_hip_angle": left_hip_angle,
+        "right_hip_angle": right_hip_angle,
+        "neck_angle_uk": neck_angle_uk,
+        "left_wrist_angle_bk": left_wrist_angle_bk,
+        "right_wrist_angle_bk": right_wrist_angle_bk,
+    }
+
+
+def circular_diff(a, b):
+    """
+    Calculate the circular difference between two angles in degrees.
+    Result is in [-180, 180].
     
-    # TODO: Add all remaining angles (knees, hips, shoulders, torso, etc.)
-    # Example:
-    # left_knee = calculate_angle(landmarks[23], landmarks[25], landmarks[27])
-    # angles.append(left_knee)
+    Parameters
+    ----------
+    a, b : float
+        Angles in degrees.
     
-    return np.array(angles)
+    Returns
+    -------
+    float
+        Signed difference in degrees.
+    """
+    return (a - b + 180) % 360 - 180

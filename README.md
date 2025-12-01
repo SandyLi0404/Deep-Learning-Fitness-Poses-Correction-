@@ -170,4 +170,5 @@ and display it along with the image and pose skeleton.
 ## 9. Acknowledgements
 - [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) for fast, robust pose estimation.
 - [Yoga Pose Classification](https://www.kaggle.com/datasets/ujjwalchowdhury/yoga-pose-classification) for training and evaluation data.
-- Prior angle-based yoga pose projects (e.g. Yoga_poses_Dataset) for inspiration on angle engineering and feedback ideas.
+- Prior angle-based yoga pose projects (e.g. [Manoj-2702
+Yoga_Poses-Dataset](https://github.com/Manoj-2702/Yoga_Poses-Dataset)) for inspiration on angle engineering and feedback ideas.

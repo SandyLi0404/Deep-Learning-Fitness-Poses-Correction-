@@ -1,6 +1,7 @@
 # FitCheck – Angle-Based Yoga Pose Feedback
 
-FitCheck is a deep-learning project that gives **pose feedback from a single yoga image**.  
+FitCheck is a deep-learning computer vision project that gives **yoga pose feedback from image input**.  
+
 It uses **MediaPipe Pose** to extract landmarks, computes **joint angles**, classifies the pose using a **PyTorch model**, and then highlights which joints deviate from “typical” form.
 
 Supported poses (currently):
@@ -32,11 +33,11 @@ Supported poses (currently):
 
    > “Lower your left hip slightly; it’s higher than the usual alignment.”
 
-5. **UI (Notebook)**  
-   A Jupyter notebook that:
-   - shows predicted pose + probability
-   - overlays the skeleton on the image
-   - prints joint-level coaching tips.
+5. **An interactive website that:**
+   - Takes an input image from upload
+   - Predict pose + confidence in prediction
+   - Identify joints in the image
+   - Provides corrections to the pose joint angles
 
 ---
 
@@ -90,7 +91,7 @@ Supported poses (currently):
 - `models/yoga_angle_resnet_meta.pkl` – metadata: class names, feature names, angle stats.
 
 ## 3. Data
-- Source: public **yoga pose image datasets** (e.g. Kaggle yoga pose datasets).
+- Source: [Yoga Pose Classification](https://www.kaggle.com/datasets/ujjwalchowdhury/yoga-pose-classification) from Kaggle.
 - Poses used: `downdog`, `goddess`, `plank`, `tree`, `warrior2`.
 
 For each image:
@@ -167,6 +168,6 @@ and display it along with the image and pose skeleton.
 - Calibrate thresholds against a curated set of expert-labeled “ideal” poses.
 
 ## 9. Acknowledgements
-- MediaPipe Pose for fast, robust pose estimation.
-- Public yoga pose datasets (Kaggle / GitHub) for training and evaluation data.
+- [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) for fast, robust pose estimation.
+- [Yoga Pose Classification](https://www.kaggle.com/datasets/ujjwalchowdhury/yoga-pose-classification) for training and evaluation data.
 - Prior angle-based yoga pose projects (e.g. Yoga_poses_Dataset) for inspiration on angle engineering and feedback ideas.

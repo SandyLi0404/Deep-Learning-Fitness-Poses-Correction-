@@ -1,5 +1,3 @@
-# app.py - Enhanced with Radar Chart Visualization
-
 import gradio as gr
 import numpy as np
 from PIL import Image

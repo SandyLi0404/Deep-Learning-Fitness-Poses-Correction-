@@ -1,5 +1,3 @@
-# pose_extraction.py - Updated landmark extraction with correct return order
-
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -8,24 +6,9 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 
+# Extract pose landmarks from an input image
 def extract_landmarks(image):
-    """
-    Extract pose landmarks from an input image.
-    
-    Parameters
-    ----------
-    image : PIL.Image or numpy.ndarray
-        The input image containing a person.
-    
-    Returns
-    -------
-    landmarks : list or None
-        List of 33 landmarks, each as tuple (x, y, z) in pixel coordinates.
-        Returns None if no pose landmarks are detected.
-    
-    annotated_image : numpy.ndarray
-        The image with pose landmarks drawn on top.
-    """
+  
     # Convert PIL Image to NumPy array if necessary
     if hasattr(image, "convert"):
         image = np.array(image.convert("RGB"))

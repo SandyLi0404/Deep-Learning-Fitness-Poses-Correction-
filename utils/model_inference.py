@@ -1,5 +1,3 @@
-# model_inference.py - Updated version matching new_version_feedback_image.ipynb
-
 import torch
 import torch.nn as nn
 import pickle
@@ -7,10 +5,9 @@ import numpy as np
 
 
 # Residual Block used inside the AngleResNet classifier
+# A residual block with two linear layers, batch norm, ReLU, and dropout.
 class ResidualBlock(nn.Module):
-    """
-    A residual block with two linear layers, batch norm, ReLU, and dropout.
-    """
+   
     def __init__(self, dim, dropout=0.5):
         super().__init__()
         self.net = nn.Sequential(
@@ -31,10 +28,9 @@ class ResidualBlock(nn.Module):
 
 
 # Main model architecture
+# Residual MLP for classifying yoga poses based on angle features
 class AngleResNet(nn.Module):
-    """
-    Residual MLP for classifying yoga poses based on angle features.
-    """
+   
     def __init__(self, in_dim, num_classes, hidden_dim=256, num_blocks=3, dropout=0.5):
         super().__init__()
         self.input_layer = nn.Sequential(
@@ -61,18 +57,9 @@ class AngleResNet(nn.Module):
 
 
 # Load trained model + metadata
+# Load the trained yoga pose classifier and associated meta-information
 def load_model():
-    """
-    Load the trained yoga pose classifier and associated meta-information.
-    
-    Returns
-    -------
-    model : torch.nn.Module
-        PyTorch model in eval() mode.
-        
-    meta : dict
-        Metadata containing class_names, feature_cols, angle_stats, etc.
-    """
+   
     # Load metadata
     with open("models/yoga_angle_resnet_meta.pkl", "rb") as f:
         meta = pickle.load(f)
@@ -117,27 +104,9 @@ except Exception as e:
     feature_cols = []
     angle_stats = {}
 
-
+# Predict yoga pose class from a dictionary of joint angles.
 def predict_pose(angle_dict):
-    """
-    Predict yoga pose class from a dictionary of joint angles.
-
-    Parameters
-    ----------
-    angle_dict : dict
-        Dictionary containing angle measurements with keys matching feature_cols.
-
-    Returns
-    -------
-    pose_name : str
-        Predicted pose label.
-
-    confidence_pct : float
-        Confidence score (0–100%).
-
-    probabilities : np.ndarray
-        Full probability distribution across all classes.
-    """
+   
     if model is None or not feature_cols:
         return "Model not loaded", 0.0, np.zeros(5)
 

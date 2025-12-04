@@ -1,8 +1,9 @@
-# app.py - Improved layout with better image sizing
+# app.py - Enhanced with Radar Chart Visualization
 
 import gradio as gr
 import numpy as np
 from PIL import Image
+import plotly.graph_objects as go
 
 print("Starting FitCheck application...")
 
@@ -11,7 +12,7 @@ try:
     from utils.pose_extraction import extract_landmarks
     from utils.angle_calculation import angles_finder
     from utils.model_inference import predict_pose, class_names, feature_cols, angle_stats
-    from utils.feedback_generator import generate_feedback
+    from utils.feedback_generator import generate_feedback, normalize_to_180, pretty_name, POSE_ANGLE_WHITELIST
     
     print("✓ All modules loaded successfully")
     print(f"✓ Available poses in angle_stats: {list(angle_stats.keys())}")
@@ -20,6 +21,129 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     raise
+
+
+def create_radar_chart(angle_dict, pose_name, angle_stats, feature_cols):
+    """
+    Create a radar chart comparing user's angles to model typical angles.
+    
+    Parameters
+    ----------
+    angle_dict : dict
+        User's calculated angles (0-360).
+    pose_name : str
+        Predicted pose name.
+    angle_stats : dict
+        Model statistics containing mean and std for each pose.
+    feature_cols : list
+        List of feature names.
+    
+    Returns
+    -------
+    fig : plotly.graph_objects.Figure
+        Radar chart figure.
+    """
+    pose_lower = pose_name.lower()
+    
+    # Get model statistics
+    stats = angle_stats.get(pose_name)
+    if not stats:
+        for key in angle_stats.keys():
+            if key.lower() == pose_lower:
+                stats = angle_stats[key]
+                break
+    
+    if not stats:
+        return None
+    
+    mean_angles = stats["mean"]
+    whitelist = POSE_ANGLE_WHITELIST.get(pose_lower, [])
+    
+    # Collect data for radar chart
+    categories = []
+    user_values = []
+    model_values = []
+    
+    for i, name in enumerate(feature_cols):
+        if name not in whitelist:
+            continue
+        
+        # Raw values (0-360) for calculation
+        raw_user_val = angle_dict.get(name, 0.0)
+        raw_model_mean = mean_angles[i]
+        
+        # Display values (0-180) for visualization
+        display_user_val = normalize_to_180(raw_user_val)
+        display_model_val = normalize_to_180(raw_model_mean)
+        
+        categories.append(pretty_name(name))
+        user_values.append(display_user_val)
+        model_values.append(display_model_val)
+    
+    if not categories:
+        return None
+    
+    # Create radar chart
+    fig = go.Figure()
+    
+    # Add model typical angles
+    fig.add_trace(go.Scatterpolar(
+        r=model_values,
+        theta=categories,
+        fill='toself',
+        name='Typical Form',
+        line=dict(color='rgb(34, 197, 94)', width=3),  # Green
+        fillcolor='rgba(34, 197, 94, 0.15)'
+    ))
+    
+    # Add user's angles
+    fig.add_trace(go.Scatterpolar(
+        r=user_values,
+        theta=categories,
+        fill='toself',
+        name='Your Form',
+        line=dict(color='rgb(59, 130, 246)', width=3),  # Blue
+        fillcolor='rgba(59, 130, 246, 0.15)'
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 180],
+                tickmode='linear',
+                tick0=0,
+                dtick=30,
+                showticklabels=True,
+                gridcolor='rgba(128, 128, 128, 0.2)'
+            ),
+            angularaxis=dict(
+                gridcolor='rgba(128, 128, 128, 0.2)'
+            )
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12)
+        ),
+        title={
+            'text': f"<b>Angle Comparison - {pose_name.title()}</b><br><sub>Comparison between your form (blue) and typical form (green)</sub>",
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 16}
+        },
+        height=550,
+        width=550,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(size=11)
+    )
+    
+    return fig
 
 
 def analyze_yoga_pose(image, std_factor=1.0, min_deg=20.0):
@@ -38,7 +162,7 @@ def analyze_yoga_pose(image, std_factor=1.0, min_deg=20.0):
     Returns
     -------
     tuple
-        (pose_name, confidence, feedback_text, annotated_image)
+        (pose_name, confidence, feedback_text, annotated_image, radar_chart)
     """
     try:
         if image is None:
@@ -46,7 +170,8 @@ def analyze_yoga_pose(image, std_factor=1.0, min_deg=20.0):
                 "No image uploaded",
                 0.0,
                 "Please upload an image before analyzing.",
-                None
+                None,
+                None  # No radar chart
             )
 
         print(f"Processing image of type: {type(image)}")
@@ -59,7 +184,8 @@ def analyze_yoga_pose(image, std_factor=1.0, min_deg=20.0):
                 "No pose detected",
                 0.0,
                 "⚠️ No person detected in the uploaded image. Please try another photo with a clear view of the full body.",
-                image if isinstance(image, np.ndarray) else np.array(image)
+                image if isinstance(image, np.ndarray) else np.array(image),
+                None  # No radar chart
             )
 
         print(f"✓ Detected {len(landmarks)} landmarks")
@@ -82,28 +208,37 @@ def analyze_yoga_pose(image, std_factor=1.0, min_deg=20.0):
             min_deg=min_deg
         )
         
+        # 5. Create radar chart
+        radar_fig = create_radar_chart(
+            angle_dict=angles,
+            pose_name=pose_name,
+            angle_stats=angle_stats,
+            feature_cols=feature_cols
+        )
+        
         # Format pose name nicely
         pose_display = pose_name.title()
         
-        return pose_display, round(confidence_pct, 1), feedback, annotated_image
+        return pose_display, round(confidence_pct, 1), feedback, annotated_image, radar_fig
 
     except Exception as e:
         # Detailed error trace for debugging
         import traceback
         error_msg = f"❌ Error during analysis:\n{str(e)}\n\n{traceback.format_exc()}"
         print(error_msg)
-        return "Error", 0.0, error_msg, None
+        return "Error", 0.0, error_msg, None, None
 
 
-# Build the Gradio UI with improved layout
+# Build the Gradio UI with radar chart
 with gr.Blocks() as demo:
     gr.Markdown("# 🧘 FitCheck - Yoga Pose Feedback System")
     gr.Markdown(
-        "Upload a yoga pose image to receive instant posture analysis and corrective feedback. "
-        "Supported poses: Downdog, Goddess, Plank, Tree, Warrior II"
+        "Upload a yoga pose image to receive instant posture analysis, corrective feedback, and visual comparison. "
+        "Supported poses: **Downdog, Goddess, Plank, Tree, Warrior II**"
     )
     
-    with gr.Row(equal_height=True):
+    with gr.Row(equal_height=False):
+        # Left column - Input
         with gr.Column(scale=1):
             input_image = gr.Image(
                 type="pil", 
@@ -112,7 +247,7 @@ with gr.Blocks() as demo:
             )
             
             analyze_btn = gr.Button(
-                "Analyze Pose 🔍", 
+                "🔍 Analyze Pose", 
                 variant="primary", 
                 size="lg",
                 scale=1
@@ -136,11 +271,12 @@ with gr.Blocks() as demo:
                     label="Minimum deviation (degrees)",
                     info="Minimum angle difference to flag"
                 )
-
+        
+        # Right column - Results
         with gr.Column(scale=1):
             output_image = gr.Image(
                 type="numpy", 
-                label="🔍 Detected Landmarks",
+                label="📍 Detected Landmarks",
                 height=400
             )
             
@@ -155,21 +291,33 @@ with gr.Blocks() as demo:
                     scale=1,
                     interactive=False
                 )
-
-    # Feedback section - full width
+    
+    # Full-width sections
     gr.Markdown("---")
-    feedback_output = gr.Textbox(
-        label="📝 Detailed Feedback & Corrections",
-        lines=22,
-        max_lines=35,
-        interactive=False
-    )
+    
+    with gr.Row():
+        # Feedback text
+        with gr.Column(scale=1):
+            feedback_output = gr.Textbox(
+                label=" Detailed Feedback & Corrections",
+                lines=20,
+                max_lines=30,
+                interactive=False
+            )
+        
+        # Radar chart
+        with gr.Column(scale=1):
+            radar_output = gr.Plot(
+                label="📊 Visual Angle Comparison"
+            )
+    
+   
 
     # Bind button click to analysis function
     analyze_btn.click(
         fn=analyze_yoga_pose,
         inputs=[input_image, std_factor, min_deg],
-        outputs=[pose_output, confidence_output, feedback_output, output_image]
+        outputs=[pose_output, confidence_output, feedback_output, output_image, radar_output]
     )
 
 print("Launching Gradio interface...")

@@ -44,46 +44,93 @@ Supported poses (currently):
 ## 2. Repository Structure
 ```text
 .
-├── data/
-│   ├── downdog/
-|       ├── Images/
-|       ├── Landmarks/
-│   ├── goddess/
-|       ├── Images/
-|       ├── Landmarks/
-│   ├── plank/
-|       ├── Images/
-|       ├── Landmarks/
-│   ├── tree/
-|       ├── Images/
-|       ├── Landmarks/
-│   └── warrior2/
-|       ├── Images/
-|       ├── Landmarks/
-│
-├── angles/
-│   ├── downdog.csv
-│   ├── goddess.csv
-│   ├── plank.csv
-│   ├── tree.csv
-│   ├── warrior2.csv
-│   └── all_angles.csv
-│
-├── models/
-│   ├── yoga_angle_resnet.pt
-│   └── yoga_angle_resnet_meta.pkl
-│
-├── angles.ipynb
-├── feedback_image.ipynb
-├── landmarks.ipynb
-├── train.ipynb
-│
-├── test/
-│   └── test1.jpg
-|   └── test2.jpg
-|   └── test3.jpg
-│
-└── README.md
+├── README.md
+├── data_clean
+│   ├── Downdog
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Goddess
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Plank
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Tree
+│   │   ├── Images
+│   │   └── Landmarks
+│   └── Warrior2
+│       ├── Images
+│       └── Landmarks
+├── data_pruned
+│   ├── Downdog_pruned
+│   │   ├── 00000037.jpg
+│   │   └── ...
+│   ├── Goddess_pruned
+│   │   ├── 00000009.jpg
+│   │   └── ...
+│   ├── Plank_pruned
+│   │   ├── 00000126.jpg
+│   │   └── ...
+│   ├── Tree_pruned
+│   │   ├── 00000121.jpg
+│   │   └── ...
+│   └── Warrior2_pruned
+│       ├── 00000016.jpg
+│       └── ...
+├── data_raw
+│   ├── Downdog
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Goddess
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Plank
+│   │   ├── Images
+│   │   └── Landmarks
+│   ├── Tree
+│   │   ├── Images
+│   │   └── Landmarks
+│   └── Warrior2
+│       ├── Images
+│       └── Landmarks
+├── data_test
+│   ├── test1.jpg
+│   ├── test2.jpg
+│   └── test3.jpg
+├── requirements.txt
+├── training
+│   ├── Angles
+│   │   ├── Downdog.csv
+│   │   ├── Goddess.csv
+│   │   ├── Plank.csv
+│   │   ├── Tree.csv
+│   │   ├── Warrior2.csv
+│   │   └── all_angles.csv
+│   ├── angles_clean
+│   │   ├── Downdog.csv
+│   │   ├── Goddess.csv
+│   │   ├── Plank.csv
+│   │   ├── Tree.csv
+│   │   ├── Warrior2.csv
+│   │   └── all_angles.csv
+│   ├── models
+│   │   ├── yoga_angle_resnet.pt
+│   │   └── yoga_angle_resnet_meta.pkl
+│   ├── models_new
+│   └── notebooks
+│       ├── 1. landmarks.ipynb
+│       ├── 2. angles.ipynb
+│       └── 3. train.ipynb
+├── ui
+   ├── app.py
+   ├── feedback_image.ipynb
+   ├── ui-readme.md
+   └── utils
+       ├── __pycache__
+       ├── angle_calculation.py
+       ├── feedback_generator.py
+       ├── model_inference.py
+       └── pose_extraction.py
 ```
 **Key artifacts**:
 - `angles/all_angles.csv` – merged angle features + labels for all poses.

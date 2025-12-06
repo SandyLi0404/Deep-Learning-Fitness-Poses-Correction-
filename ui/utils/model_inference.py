@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import pickle
 import numpy as np
+import os
 
 
 # Residual Block used inside the AngleResNet classifier
@@ -61,7 +62,13 @@ class AngleResNet(nn.Module):
 def load_model():
    
     # Load metadata
-    with open("models/yoga_angle_resnet_meta.pkl", "rb") as f:
+    THIS_DIR = os.path.dirname(__file__)
+
+    MODEL_DIR = os.path.abspath(
+        os.path.join(THIS_DIR, "..", "..", "training", "models")
+    )
+
+    with open(f"{MODEL_DIR}/yoga_angle_resnet_meta.pkl", "rb") as f:
         meta = pickle.load(f)
 
     # Retrieve model parameters from metadata
@@ -82,7 +89,7 @@ def load_model():
 
     # Load trained weights
     device = torch.device("cpu")
-    state_dict = torch.load("models/yoga_angle_resnet.pt", map_location=device)
+    state_dict = torch.load(f"{MODEL_DIR}/yoga_angle_resnet.pt", map_location=device)
     model.load_state_dict(state_dict)
     model.eval()
 
